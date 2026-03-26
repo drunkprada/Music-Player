@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luminex - Music Streaming</title>
+    <title>Melo - Music Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/animations.css">
     <link rel="stylesheet" href="css/visualizer.css">
@@ -40,7 +40,7 @@
                         </defs>
                     </svg>
                 </div>
-                <span class="logo-text">Luminex</span>
+                <span class="logo-text">MELO</span>
             </div>
 
             <nav class="nav-menu">
@@ -49,21 +49,21 @@
                         <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
                         <polyline points="9,22 9,12 15,12 15,22"/>
                     </svg>
-                    <span>Home</span>
+                    <span>Feed</span>
                 </a>
                 <a href="#" class="nav-item" data-view="search">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="11" cy="11" r="8"/>
                         <path d="M21 21l-4.35-4.35"/>
                     </svg>
-                    <span>Search</span>
+                    <span>Discover</span>
                 </a>
                 <a href="#" class="nav-item" data-view="library">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
                         <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
                     </svg>
-                    <span>Library</span>
+                    <span>Playlists</span>
                 </a>
             </nav>
 
@@ -71,7 +71,7 @@
 
             <div class="playlist-section">
                 <div class="section-header">
-                    <span>Your Playlists</span>
+                    <span>Your Mixes</span>
                     <button class="icon-btn create-playlist-btn" title="Create Playlist">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="12" y1="5" x2="12" y2="19"/>
@@ -89,7 +89,7 @@
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
                     </svg>
-                    <span>Liked Songs</span>
+                    <span>Favorites</span>
                 </a>
             </div>
         </aside>
@@ -103,7 +103,7 @@
                         <circle cx="11" cy="11" r="8"/>
                         <path d="M21 21l-4.35-4.35"/>
                     </svg>
-                    <input type="text" placeholder="Search songs, artists, albums..." id="searchInput">
+                    <input type="text" placeholder="Search by artists, songs or albums" id="searchInput">
                 </div>
                 <div class="header-actions">
                     <button class="icon-btn notification-btn">
@@ -123,7 +123,7 @@
                 <!-- Home View -->
                 <section class="view active" id="homeView">
                     <div class="featured-section">
-                        <h2 class="section-title">Good Evening</h2>
+                        <h2 class="section-title">Playlist of the day</h2>
                         <div class="featured-grid" id="featuredGrid">
                             <!-- Featured items loaded dynamically -->
                         </div>
@@ -131,7 +131,7 @@
 
                     <div class="section">
                         <div class="section-header-row">
-                            <h2 class="section-title">Recently Played</h2>
+                            <h2 class="section-title">New Releases</h2>
                             <a href="#" class="see-all">See all</a>
                         </div>
                         <div class="horizontal-scroll" id="recentlyPlayed">
@@ -141,7 +141,7 @@
 
                     <div class="section">
                         <div class="section-header-row">
-                            <h2 class="section-title">Made For You</h2>
+                            <h2 class="section-title">Last Listened</h2>
                             <a href="#" class="see-all">See all</a>
                         </div>
                         <div class="horizontal-scroll" id="madeForYou">
@@ -151,7 +151,7 @@
 
                     <div class="section">
                         <div class="section-header-row">
-                            <h2 class="section-title">Trending Now</h2>
+                            <h2 class="section-title">Top Tracks</h2>
                             <a href="#" class="see-all">See all</a>
                         </div>
                         <div class="song-list" id="trendingList">
@@ -174,7 +174,7 @@
                 <!-- Library View -->
                 <section class="view" id="libraryView">
                     <div class="library-header">
-                        <h2 class="section-title">Your Library</h2>
+                        <h2 class="section-title">Your Playlists</h2>
                         <div class="library-filters">
                             <button class="filter-chip active">Playlists</button>
                             <button class="filter-chip">Albums</button>
@@ -198,7 +198,7 @@
                             </div>
                             <div class="playlist-info">
                                 <span class="playlist-type">Playlist</span>
-                                <h1 class="playlist-title">Liked Songs</h1>
+                                <h1 class="playlist-title">Favorite Tracks</h1>
                                 <p class="playlist-meta"><span id="favoritesCount">0</span> songs</p>
                             </div>
                         </div>
@@ -293,7 +293,7 @@
         <!-- Now Playing Panel -->
         <aside class="now-playing-panel glass-panel" id="nowPlayingPanel">
             <div class="panel-header">
-                <span>Now Playing</span>
+                <span>Latest Mood</span>
                 <button class="icon-btn toggle-queue-btn" id="toggleQueueBtn" title="Toggle Queue">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="8" y1="6" x2="21" y2="6"/>
@@ -358,7 +358,7 @@
             <!-- Lyrics Section -->
             <div class="lyrics-section" id="lyricsSection">
                 <div class="lyrics-header">
-                    <span>Lyrics</span>
+                    <span>Live Lyrics</span>
                     <button class="icon-btn expand-lyrics-btn" id="expandLyricsBtn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="15,3 21,3 21,9"/>
@@ -379,7 +379,7 @@
             <!-- Queue Section (Hidden by default) -->
             <div class="queue-section" id="queueSection" style="display: none;">
                 <div class="queue-header">
-                    <span>Queue</span>
+                    <span>Up Next</span>
                     <button class="icon-btn clear-queue-btn" id="clearQueueBtn" title="Clear Queue">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="3,6 5,6 21,6"/>
