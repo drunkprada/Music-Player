@@ -118,24 +118,30 @@ class LuminexApp {
         const spotlight = window.songsData[1];
 
         this.featuredGrid.innerHTML = `
-            <div class="featured-card stagger-item" data-song-id="${lead.id}" style="animation-delay: 0.05s">
-                <img src="${lead.cover}" alt="${lead.title}" class="featured-card-img">
+            <div class="featured-card purple stagger-item" data-song-id="${lead.id}" style="animation-delay: 0.05s">
+                <div class="featured-card-bg"></div>
                 <div class="featured-copy">
-                    <span class="featured-kicker">Playlist of the day</span>
-                    <span class="featured-card-title">${lead.title}</span>
-                    <span class="featured-meta">${lead.artist}</span>
+                    <span class="featured-kicker">Playlist of the Day</span>
+                    <span class="featured-card-title">Find Your Music</span>
+                    <span class="featured-meta">${lead.artist} • ${lead.album}</span>
+                </div>
+                <div class="featured-vinyl">
+                    <div class="vinyl-disc">
+                        <img src="${lead.cover}" alt="${lead.title}" class="vinyl-cover">
+                    </div>
                 </div>
                 <div class="play-overlay">
                     <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
                 </div>
             </div>
-            <div class="featured-card featured-card-wide stagger-item" data-song-id="${spotlight.id}" style="animation-delay: 0.1s">
-                <img src="${spotlight.cover}" alt="${spotlight.title}" class="featured-card-img">
+            <div class="featured-card lime stagger-item" data-song-id="${spotlight.id}" style="animation-delay: 0.1s">
+                <div class="featured-card-bg"></div>
                 <div class="featured-copy">
-                    <span class="featured-kicker">Track spotlight</span>
-                    <span class="featured-card-title">${spotlight.title}</span>
-                    <span class="featured-meta">${spotlight.album}</span>
+                    <span class="featured-kicker">Hot Right Now</span>
+                    <span class="featured-card-title">Trending Hits</span>
+                    <span class="featured-meta">${spotlight.artist}</span>
                 </div>
+                <img src="${spotlight.cover}" alt="${spotlight.title}" class="featured-card-img">
                 <div class="play-overlay">
                     <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
                 </div>
