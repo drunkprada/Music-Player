@@ -114,18 +114,33 @@ class LuminexApp {
     renderFeaturedGrid() {
         if (!this.featuredGrid) return;
 
-        // Use first 6 songs as featured
-        const featured = window.songsData.slice(0, 6);
+        const lead = window.songsData[0];
+        const spotlight = window.songsData[1];
 
-        this.featuredGrid.innerHTML = featured.map((song, index) => `
-            <div class="featured-card stagger-item" data-song-id="${song.id}" style="animation-delay: ${index * 0.05}s">
-                <img src="${song.cover}" alt="${song.title}" class="featured-card-img">
-                <span class="featured-card-title">${song.title}</span>
+        this.featuredGrid.innerHTML = `
+            <div class="featured-card stagger-item" data-song-id="${lead.id}" style="animation-delay: 0.05s">
+                <img src="${lead.cover}" alt="${lead.title}" class="featured-card-img">
+                <div class="featured-copy">
+                    <span class="featured-kicker">Playlist of the day</span>
+                    <span class="featured-card-title">${lead.title}</span>
+                    <span class="featured-meta">${lead.artist}</span>
+                </div>
                 <div class="play-overlay">
                     <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
                 </div>
             </div>
-        `).join('');
+            <div class="featured-card featured-card-wide stagger-item" data-song-id="${spotlight.id}" style="animation-delay: 0.1s">
+                <img src="${spotlight.cover}" alt="${spotlight.title}" class="featured-card-img">
+                <div class="featured-copy">
+                    <span class="featured-kicker">Track spotlight</span>
+                    <span class="featured-card-title">${spotlight.title}</span>
+                    <span class="featured-meta">${spotlight.album}</span>
+                </div>
+                <div class="play-overlay">
+                    <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+                </div>
+            </div>
+        `;
 
         // Add click handlers
         this.featuredGrid.querySelectorAll('.featured-card').forEach(card => {
@@ -486,8 +501,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.app = new LuminexApp();
 
     // Log welcome message
-    console.log('%c🎵 Luminex Music Player', 'font-size: 24px; font-weight: bold; color: #8b5cf6;');
-    console.log('%cWelcome to the future of music streaming!', 'font-size: 14px; color: #06b6d4;');
+    console.log('%cMELO Music Dashboard', 'font-size: 24px; font-weight: bold; color: #ff5f32;');
+    console.log('%cFrontend only. No backend required.', 'font-size: 14px; color: #ff8c4b;');
 });
 
 // Export context menu object for external use

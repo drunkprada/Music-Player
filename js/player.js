@@ -159,7 +159,7 @@ class AudioPlayer {
         if (this.currentSongArtist) this.currentSongArtist.textContent = song.artist;
 
         // Update document title
-        document.title = `${song.title} - ${song.artist} | Luminex`;
+        document.title = `${song.title} - ${song.artist} | Melo`;
 
         // Update like button state
         this.updateLikeState();
