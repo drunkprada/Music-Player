@@ -143,12 +143,17 @@ function renderGenres() {
     { name: 'Hip-Hop',    cnt: '2 songs', c1: '#7c3aed', c2: '#2e1065' },
     { name: 'R&B',        cnt: '4 songs', c1: '#0e7490', c2: '#082f49' },
   ];
-  document.getElementById('genres-grid').innerHTML = genres.map(g => `
-    <div class="gc" style="--c1:${g.c1};--c2:${g.c2}">
-      <div class="gn">${g.name}</div>
-      <div class="gct">${g.cnt}</div>
-    </div>
-  `).join('');
+  document.getElementById('genres-grid').innerHTML = genres.map(g => {
+    const icon = (window.GENRE_META && GENRE_META[g.name]?.icon) || '';
+    return `
+      <div class="gc" style="--c1:${g.c1};--c2:${g.c2}">
+        <span class="gc-icon">${icon}</span>
+        <div>
+          <div class="gn">${g.name}</div>
+          <div class="gct">${g.cnt}</div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 // Vinyl
@@ -350,3 +355,86 @@ renderSongList();
 renderArtists();
 renderGenres();
 renderLibrary();
+
+// ── QUIZ ────────────────────────────────────────────────────────────────────
+
+const GENRE_META = {
+  'Electronic': { color: '#22D3EE', icon: '⚡' },
+  'Pop':        { color: '#F472B6', icon: '✨' },
+  'Rock':       { color: '#F87171', icon: '🎸' },
+  'Jazz':       { color: '#FBBF24', icon: '🎷' },
+  'Hip-Hop':    { color: '#A78BFA', icon: '🎤' },
+  'R&B':        { color: '#60A5FA', icon: '🎵' },
+};
+
+const GENRES_ORDER = ['Electronic', 'Pop', 'Rock', 'Jazz', 'Hip-Hop', 'R&B'];
+
+function initQuiz() {
+  const quizEl = document.getElementById('quiz');
+  const grid   = document.getElementById('qz-grid');
+  const btn    = document.getElementById('qz-btn');
+  const selected = new Set();
+
+  // Build genre tiles
+  grid.innerHTML = GENRES_ORDER.map(g => {
+    const m = GENRE_META[g];
+    return `
+      <div class="qz-tile" data-genre="${g}" style="--tile-color:${m.color}">
+        <span class="qz-tile-icon">${m.icon}</span>
+        <span class="qz-tile-name">${g}</span>
+        <span class="qz-check">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+        </span>
+      </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.qz-tile').forEach(tile => {
+    tile.addEventListener('click', () => {
+      const g = tile.dataset.genre;
+      if (selected.has(g)) {
+        selected.delete(g);
+        tile.classList.remove('sel');
+      } else {
+        selected.add(g);
+        tile.classList.add('sel');
+      }
+      const n = selected.size;
+      btn.disabled = n === 0;
+      btn.textContent = n === 0
+        ? 'Select a genre to continue'
+        : `Continue with ${n} genre${n > 1 ? 's' : ''} →`;
+    });
+  });
+
+  btn.addEventListener('click', () => {
+    if (!selected.size) return;
+
+    // Apply the first selected genre's color as the accent
+    const pick = [...selected][0];
+    const newAcc = GENRE_META[pick]?.color || '#C8FF00';
+    document.documentElement.style.setProperty('--acc', newAcc);
+
+    // Sync GENRE_COLORS used in song rows
+    Object.entries(GENRE_META).forEach(([k, v]) => {
+      window.GENRE_COLORS[k] = v.color;
+    });
+    renderSongList(); // re-render with new colors
+
+    // Update greeting to reference the quiz
+    document.getElementById('greeting').textContent =
+      `Your ${pick} mix`;
+
+    // Slide quiz away
+    quizEl.classList.add('out');
+    quizEl.addEventListener('transitionend', () => {
+      quizEl.style.display = 'none';
+    }, { once: true });
+  });
+}
+
+// Show quiz unless already completed this session
+if (!sessionStorage.getItem('quizDone')) {
+  initQuiz();
+} else {
+  document.getElementById('quiz').style.display = 'none';
+}
