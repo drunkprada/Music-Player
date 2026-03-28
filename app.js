@@ -1,275 +1,352 @@
+let currentSong = null;
+let isPlaying = false;
+let shuffleOn = false;
+let repeatMode = 0;
+let favs = new Set(JSON.parse(localStorage.getItem('favs') || '[]'));
+let wfBarsBar = [];
+let wfBarsNp = [];
+
 const audio = document.getElementById('audio');
-const songs = window.SONGS;
-const $ = id => document.getElementById(id);
-const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-let currentId = null, isPlaying = false, isShuffle = false, repeatMode = 0;
-let activeGenre = null, searchQuery = '';
-let favorites = JSON.parse(localStorage.getItem('melo-favs') || '[]');
-
-const GENRES = {
-  'Electronic': { emoji: '\u26A1', bg: 'linear-gradient(135deg, #60a5fa, #818cf8)' },
-  'Pop':        { emoji: '\uD83C\uDFA4', bg: 'linear-gradient(135deg, #f472b6, #fb7185)' },
-  'Rock':       { emoji: '\uD83C\uDFB8', bg: 'linear-gradient(135deg, #FF6B35, #fbbf24)' },
-  'Jazz':       { emoji: '\uD83C\uDFB7', bg: 'linear-gradient(135deg, #fbbf24, #f59e0b)' },
-  'Hip-Hop':    { emoji: '\uD83C\uDFA7', bg: 'linear-gradient(135deg, #a78bfa, #7c3aed)' },
-};
-
-// ── Landing transition ─────────────────────────
-$('start-btn').addEventListener('click', () => {
-  const landing = $('landing');
-  landing.classList.add('exit');
-  setTimeout(() => {
-    landing.classList.add('hidden');
-    $('app').classList.remove('hidden');
-    sessionStorage.setItem('melo-entered', '1');
-  }, 600);
-});
-
-if (sessionStorage.getItem('melo-entered')) {
-  $('landing').classList.add('hidden');
-  $('app').classList.remove('hidden');
+function fmt(s) {
+  const m = Math.floor(s / 60);
+  return `${m}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
 }
 
-// ── Greeting ─────────────────────────
-const hour = new Date().getHours();
-const greetings = [
-  [5, 'Good morning \u2600\uFE0F'],
-  [12, 'Good afternoon \uD83C\uDF24\uFE0F'],
-  [18, 'Good evening \u2728'],
-  [24, 'Late night vibes \uD83C\uDF19'],
-];
-$('greeting').textContent = greetings.find(([h]) => hour < h)?.[1] || 'Hey there';
-
-// ── Genre cards ─────────────────────────
-function renderGenres() {
-  const unique = [...new Set(songs.map(s => s.genre))];
-  $('genre-scroll').innerHTML = unique.map(g => {
-    const { emoji, bg } = GENRES[g] || { emoji: '\uD83C\uDFB5', bg: 'linear-gradient(135deg,#888,#aaa)' };
-    return `<div class="genre-card${activeGenre === g ? ' active' : ''}" style="background:${bg}" data-genre="${g}">
-      <span class="genre-emoji" style="animation-delay:${Math.random() * 2}s">${emoji}</span>
-      <span class="genre-name">${g}</span>
-    </div>`;
-  }).join('');
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
 }
 
-$('genre-scroll').addEventListener('click', e => {
-  const card = e.target.closest('[data-genre]');
-  if (!card) return;
-  activeGenre = activeGenre === card.dataset.genre ? null : card.dataset.genre;
-  $('sec-title').textContent = activeGenre || 'All Songs';
-  renderGenres();
-  renderSongs();
-});
+// Waveform
+let wseed = 91;
+const wr = () => { wseed = (wseed * 1664525 + 1013904223) >>> 0; return wseed / 0xFFFFFFFF; };
+const WAVE_H = Array.from({length: 80}, () => 12 + wr() * 76);
 
-// ── Song list ─────────────────────────
-function getList() {
-  return songs.filter(s => {
-    if (activeGenre && s.genre !== activeGenre) return false;
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q);
-  });
+function buildWaveform() {
+  const barEl = document.getElementById('bp-rail');
+  const npEl = document.getElementById('np-wf');
+  barEl.innerHTML = WAVE_H.map(h => `<span class="wfb" style="height:${h}%"></span>`).join('');
+  npEl.innerHTML = WAVE_H.map(h => `<span class="npwb" style="height:${h}%"></span>`).join('');
+  wfBarsBar = Array.from(barEl.children);
+  wfBarsNp = Array.from(npEl.children);
 }
 
-function renderSongs() {
-  const list = getList();
-  $('song-count').textContent = `${list.length} songs`;
-  $('song-list').innerHTML = list.length ? list.map((s, i) => {
-    const playing = s.id === currentId;
-    const fav = favorites.includes(s.id);
-    const num = playing && isPlaying
-      ? '<span class="eq-bars"><span></span><span></span><span></span></span>'
-      : `<span class="song-num">${i + 1}</span>`;
-    const gc = GENRES[s.genre]?.bg.match(/#\w+/)?.[0] || '#888';
-    return `<div class="song-item${playing ? ' playing' : ''}" data-id="${s.id}" style="animation-delay:${i * 0.04}s">
-      ${num}
-      <img class="song-art" src="${s.cover}" loading="lazy">
-      <div class="song-meta">
-        <div class="song-title">${s.title}</div>
-        <div class="song-artist">${s.artist}</div>
+function updateWavePct(pct) {
+  const idx = Math.floor(pct * wfBarsBar.length);
+  wfBarsBar.forEach((b, i) => b.classList.toggle('lit', i < idx));
+  wfBarsNp.forEach((b, i) => b.classList.toggle('lit', i < idx));
+}
+
+// Render
+function renderLibrary() {
+  document.getElementById('library').innerHTML = SONGS.map(s => `
+    <div class="lib-item${currentSong?.id === s.id ? ' playing' : ''}" data-id="${s.id}">
+      ${currentSong?.id === s.id
+        ? `<div class="lib-eq"><span></span><span></span><span></span></div>`
+        : `<img class="lib-art" src="${s.cover}" alt="">`}
+      <div style="overflow:hidden">
+        <span class="lib-name${currentSong?.id === s.id ? ' on' : ''}">${s.title}</span>
+        <span class="lib-artist">${s.artist}</span>
       </div>
-      <span class="song-genre" style="background:${gc}">${s.genre}</span>
-      <span class="song-dur">${s.duration}</span>
-      <button class="heart-btn${fav ? ' active' : ''}" data-fav="${s.id}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="${fav ? 'var(--pink)' : 'none'}" stroke="${fav ? 'var(--pink)' : 'currentColor'}" stroke-width="2">
-          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-        </svg>
-      </button>
-    </div>`;
-  }).join('') : '<div class="empty-msg">No songs found</div>';
+      <span class="lib-dur">${s.duration}</span>
+    </div>
+  `).join('');
+  document.querySelectorAll('.lib-item').forEach(el =>
+    el.addEventListener('click', () => playSong(SONGS.find(s => s.id === el.dataset.id)))
+  );
 }
 
-$('song-list').addEventListener('click', e => {
-  const favBtn = e.target.closest('[data-fav]');
-  if (favBtn) { toggleFav(favBtn.dataset.fav); return; }
-  const item = e.target.closest('[data-id]');
-  if (item) playSong(songs.find(s => s.id === item.dataset.id));
-});
-
-// ── Favorites ─────────────────────────
-function toggleFav(id) {
-  const i = favorites.indexOf(id);
-  if (i === -1) favorites.push(id); else favorites.splice(i, 1);
-  localStorage.setItem('melo-favs', JSON.stringify(favorites));
-  renderSongs();
-  if (id === currentId) syncHeart();
+function renderHome() {
+  document.getElementById('greeting').textContent = greeting();
+  document.getElementById('qa-grid').innerHTML = SONGS.slice(0, 6).map(s => `
+    <div class="qa-card pa" data-id="${s.id}">
+      <img class="qa-img" src="${s.cover}" alt="">
+      <span class="qa-name">${s.title}</span>
+    </div>
+  `).join('');
+  document.getElementById('mfy-row').innerHTML = SONGS.map(s => `
+    <div class="mfy-card" data-id="${s.id}">
+      <img class="mfy-art" src="${s.cover}" alt="">
+      <span class="mfy-name">${s.title}</span>
+      <span class="mfy-desc">${s.artist}</span>
+    </div>
+  `).join('');
+  document.querySelectorAll('.qa-card, .mfy-card').forEach(el =>
+    el.addEventListener('click', () => playSong(SONGS.find(s => s.id === el.dataset.id)))
+  );
 }
 
-function syncHeart() {
-  const on = favorites.includes(currentId);
-  const btn = $('heart-btn');
-  btn.classList.toggle('active', on);
-  btn.querySelector('svg').setAttribute('fill', on ? 'var(--pink)' : 'none');
-  btn.querySelector('svg').setAttribute('stroke', on ? 'var(--pink)' : 'currentColor');
+function renderSongList() {
+  document.getElementById('song-list').innerHTML = SONGS.map((s, i) => `
+    <div class="sr pa${currentSong?.id === s.id ? ' playing' : ''}" data-id="${s.id}" style="--d:${i * 0.04}s">
+      <div style="display:flex;align-items:center;justify-content:center">
+        <span class="sr-num">${i + 1}</span>
+        <span class="sr-play">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21"/></svg>
+        </span>
+      </div>
+      <div class="sr-tc">
+        <img class="sr-art" src="${s.cover}" alt="">
+        <div style="overflow:hidden">
+          <span class="sr-name">${s.title}</span>
+          <span class="sr-sub">${s.artist}</span>
+        </div>
+      </div>
+      <span class="sr-genre" style="color:${GENRE_COLORS[s.genre] || 'var(--mu)'}">${s.genre}</span>
+      <div class="sr-acts">
+        <button class="sr-heart${favs.has(s.id) ? ' fav' : ''}" data-id="${s.id}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="${favs.has(s.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </button>
+        <span class="sr-dur">${s.duration}</span>
+      </div>
+    </div>
+  `).join('');
+  document.querySelectorAll('.sr').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.closest('.sr-heart')) return;
+      playSong(SONGS.find(s => s.id === el.dataset.id));
+    });
+  });
+  document.querySelectorAll('.sr-heart').forEach(btn =>
+    btn.addEventListener('click', e => { e.stopPropagation(); toggleFav(btn.dataset.id); })
+  );
 }
 
-$('heart-btn').addEventListener('click', () => { if (currentId) toggleFav(currentId); });
+function renderArtists() {
+  const artists = [
+    { name: 'Luna Echo',    genre: 'Electronic', seed: 'portrait-luna' },
+    { name: 'The Coastals', genre: 'Pop',        seed: 'portrait-coast' },
+    { name: 'Voidwave',     genre: 'Rock',       seed: 'portrait-void' },
+    { name: 'Sol Raye',     genre: 'Jazz',       seed: 'portrait-sol' },
+    { name: 'Synthex',      genre: 'Electronic', seed: 'portrait-synth' },
+    { name: 'Urban Groove', genre: 'Hip-Hop',    seed: 'portrait-urban' },
+  ];
+  document.getElementById('artists-row').innerHTML = artists.map(a => `
+    <div class="ac">
+      <img class="aph" src="https://picsum.photos/seed/${a.seed}/180/180" alt="">
+      <span class="an">${a.name}</span>
+      <span class="ag">${a.genre}</span>
+      <button class="fbtn">Follow</button>
+    </div>
+  `).join('');
+}
 
-// ── Playback ─────────────────────────
+function renderGenres() {
+  const genres = [
+    { name: 'Electronic', cnt: '3 songs', c1: '#3730a3', c2: '#1e1b4b' },
+    { name: 'Pop',        cnt: '3 songs', c1: '#be185d', c2: '#500724' },
+    { name: 'Rock',       cnt: '3 songs', c1: '#dc2626', c2: '#450a0a' },
+    { name: 'Jazz',       cnt: '2 songs', c1: '#d97706', c2: '#451a03' },
+    { name: 'Hip-Hop',    cnt: '2 songs', c1: '#7c3aed', c2: '#2e1065' },
+    { name: 'R&B',        cnt: '4 songs', c1: '#0e7490', c2: '#082f49' },
+  ];
+  document.getElementById('genres-grid').innerHTML = genres.map(g => `
+    <div class="gc" style="--c1:${g.c1};--c2:${g.c2}">
+      <div class="gn">${g.name}</div>
+      <div class="gct">${g.cnt}</div>
+    </div>
+  `).join('');
+}
+
+// Vinyl
+function setVinylSpin(on) {
+  document.getElementById('bar-art').classList.toggle('spinning', on);
+  document.getElementById('np-art').classList.toggle('spinning', on);
+}
+
+// Overlay
+function openOverlay() {
+  if (!currentSong) return;
+  const s = currentSong;
+  document.getElementById('np-bg').src = s.cover;
+  document.getElementById('np-art').src = s.cover;
+  document.getElementById('np-ttl').textContent = s.title;
+  document.getElementById('np-by').textContent = s.artist;
+  document.getElementById('np-tag').textContent = s.genre;
+  document.getElementById('np-t2').textContent = fmt(audio.duration || 0);
+  document.getElementById('np-c2').textContent = fmt(audio.currentTime || 0);
+  setVinylSpin(isPlaying);
+  const pico = isPlaying
+    ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
+    : '<polygon points="5 3 19 12 5 21"/>';
+  document.getElementById('np-pico').innerHTML = pico;
+  document.getElementById('np').classList.add('open');
+}
+
+function closeOverlay() {
+  document.getElementById('np').classList.remove('open');
+}
+
+// Playback
+function updateBarHeart() {
+  const svg = document.getElementById('heart-icon');
+  const on = currentSong && favs.has(currentSong.id);
+  svg.setAttribute('fill', on ? 'var(--acc)' : 'none');
+  svg.setAttribute('stroke', on ? 'var(--acc)' : 'currentColor');
+}
+
+const PLAY_ICO = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+const PAUSE_ICO = '<polygon points="5 3 19 12 5 21"/>';
+
 function playSong(song) {
   if (!song) return;
-  currentId = song.id;
-  audio.src = song.audio;
-  audio.play().catch(() => {});
+  currentSong = song;
   isPlaying = true;
-
-  // Bar
-  $('bar-art').src = song.cover;
-  $('bar-title').textContent = song.title;
-  $('bar-artist').textContent = song.artist;
-
-  // Full
-  $('full-art').src = song.cover;
-  $('full-title').textContent = song.title;
-  $('full-artist').textContent = song.artist;
-
-  setIcons(true);
-  syncHeart();
-  renderSongs();
-  $('waveform').classList.add('playing');
-}
-
-function setIcons(playing) {
-  const pause = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
-  const play = '<polygon points="5 3 19 12 5 21"/>';
-  $('play-icon').innerHTML = playing ? pause : play;
-  $('f-play-icon').innerHTML = playing ? pause : play;
+  audio.src = song.audio;
+  audio.play();
+  document.getElementById('bar-art').src = song.cover;
+  document.getElementById('bar-title').textContent = song.title;
+  document.getElementById('bar-artist').textContent = song.artist;
+  document.getElementById('bar-play-icon').innerHTML = PLAY_ICO;
+  document.getElementById('np-pico').innerHTML = PLAY_ICO;
+  setVinylSpin(true);
+  updateBarHeart();
+  if (document.getElementById('np').classList.contains('open')) openOverlay();
+  renderLibrary();
+  renderSongList();
 }
 
 function togglePlay() {
-  if (!currentId) { playSong(getList()[0]); return; }
-  if (isPlaying) { audio.pause(); isPlaying = false; $('waveform').classList.remove('playing'); }
-  else { audio.play(); isPlaying = true; $('waveform').classList.add('playing'); }
-  setIcons(isPlaying);
-  renderSongs();
+  if (!currentSong) return;
+  if (isPlaying) {
+    audio.pause();
+    isPlaying = false;
+    document.getElementById('bar-play-icon').innerHTML = PAUSE_ICO;
+    document.getElementById('np-pico').innerHTML = PAUSE_ICO;
+    setVinylSpin(false);
+  } else {
+    audio.play();
+    isPlaying = true;
+    document.getElementById('bar-play-icon').innerHTML = PLAY_ICO;
+    document.getElementById('np-pico').innerHTML = PLAY_ICO;
+    setVinylSpin(true);
+  }
 }
 
 function playNext() {
-  const list = getList();
-  if (!list.length) return;
-  if (isShuffle) return playSong(list[Math.floor(Math.random() * list.length)]);
-  const idx = list.findIndex(s => s.id === currentId);
-  playSong(list[(idx + 1) % list.length]);
+  if (!currentSong) { playSong(SONGS[0]); return; }
+  const idx = SONGS.findIndex(s => s.id === currentSong.id);
+  if (shuffleOn) {
+    let n; do { n = Math.floor(Math.random() * SONGS.length); } while (n === idx && SONGS.length > 1);
+    playSong(SONGS[n]);
+  } else {
+    playSong(SONGS[(idx + 1) % SONGS.length]);
+  }
 }
 
 function playPrev() {
+  if (!currentSong) return;
   if (audio.currentTime > 3) { audio.currentTime = 0; return; }
-  const list = getList();
-  if (!list.length) return;
-  const idx = list.findIndex(s => s.id === currentId);
-  playSong(list[(idx - 1 + list.length) % list.length]);
+  const idx = SONGS.findIndex(s => s.id === currentSong.id);
+  playSong(SONGS[(idx - 1 + SONGS.length) % SONGS.length]);
 }
 
-// Bar controls
-$('play-btn').addEventListener('click', togglePlay);
-$('next-btn').addEventListener('click', playNext);
-$('prev-btn').addEventListener('click', playPrev);
-
-// Full controls
-$('f-play').addEventListener('click', togglePlay);
-$('f-next').addEventListener('click', playNext);
-$('f-prev').addEventListener('click', playPrev);
-
-// Shuffle
-function toggleShuffle() {
-  isShuffle = !isShuffle;
-  $('shuffle-btn').classList.toggle('on', isShuffle);
-  $('f-shuffle').classList.toggle('on', isShuffle);
+function toggleFav(id) {
+  favs.has(id) ? favs.delete(id) : favs.add(id);
+  localStorage.setItem('favs', JSON.stringify([...favs]));
+  renderSongList();
+  updateBarHeart();
 }
-$('shuffle-btn').addEventListener('click', toggleShuffle);
-$('f-shuffle').addEventListener('click', toggleShuffle);
 
-// Repeat
-function toggleRepeat() {
-  repeatMode = (repeatMode + 1) % 3;
-  $('repeat-btn').classList.toggle('on', repeatMode > 0);
-  $('f-repeat').classList.toggle('on', repeatMode > 0);
-  $('repeat-btn').title = $('f-repeat').title = ['Off', 'All', 'One'][repeatMode];
-}
-$('repeat-btn').addEventListener('click', toggleRepeat);
-$('f-repeat').addEventListener('click', toggleRepeat);
-
-audio.addEventListener('ended', () => {
-  if (repeatMode === 2) { audio.currentTime = 0; audio.play(); return; }
-  const list = getList();
-  const idx = list.findIndex(s => s.id === currentId);
-  if (repeatMode === 0 && !isShuffle && idx === list.length - 1) {
-    isPlaying = false; setIcons(false); $('waveform').classList.remove('playing'); renderSongs(); return;
-  }
-  playNext();
-});
-
-// ── Progress ─────────────────────────
+// Audio events
 audio.addEventListener('timeupdate', () => {
   if (!audio.duration) return;
-  const pct = (audio.currentTime / audio.duration * 100) + '%';
-  $('bar-progress').style.width = pct;
-  $('full-fill').style.width = pct;
-  $('f-cur').textContent = fmt(audio.currentTime);
-  $('f-tot').textContent = fmt(audio.duration);
+  const pct = audio.currentTime / audio.duration;
+  updateWavePct(pct);
+  document.getElementById('bp-cur').textContent = fmt(audio.currentTime);
+  document.getElementById('np-c2').textContent = fmt(audio.currentTime);
 });
 
-$('full-bar').addEventListener('click', e => {
+audio.addEventListener('loadedmetadata', () => {
+  document.getElementById('bp-tot').textContent = fmt(audio.duration);
+  document.getElementById('np-t2').textContent = fmt(audio.duration);
+});
+
+audio.addEventListener('ended', () => {
+  if (repeatMode === 2) { audio.currentTime = 0; audio.play(); }
+  else playNext();
+});
+
+// Seek
+document.getElementById('bp-rail').addEventListener('click', e => {
   if (!audio.duration) return;
   const r = e.currentTarget.getBoundingClientRect();
   audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration;
 });
 
-// ── Volume ─────────────────────────
-$('volume').addEventListener('input', e => { audio.volume = e.target.value / 100; });
+document.getElementById('np-wf').addEventListener('click', e => {
+  if (!audio.duration) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration;
+});
+
+// Volume
 audio.volume = 0.7;
+document.getElementById('bar-vol').addEventListener('input', e => { audio.volume = e.target.value / 100; });
 
-// ── Search ─────────────────────────
-$('search').addEventListener('input', e => {
-  searchQuery = e.target.value;
-  $('sec-title').textContent = searchQuery ? `Results for "${searchQuery}"` : (activeGenre || 'All Songs');
-  renderSongs();
+// Player bar controls
+document.getElementById('bar-play').addEventListener('click', togglePlay);
+document.getElementById('bar-next').addEventListener('click', playNext);
+document.getElementById('bar-prev').addEventListener('click', playPrev);
+document.getElementById('bar-heart').addEventListener('click', () => { if (currentSong) toggleFav(currentSong.id); });
+
+document.getElementById('bar-shuffle').addEventListener('click', function() {
+  shuffleOn = !shuffleOn;
+  this.classList.toggle('active', shuffleOn);
 });
 
-// ── Full player toggle ─────────────────────────
-$('bar-left').addEventListener('click', () => {
-  if (!currentId) return;
-  $('full').classList.remove('hidden');
-  $('full').classList.add('show');
+document.getElementById('bar-repeat').addEventListener('click', function() {
+  repeatMode = (repeatMode + 1) % 3;
+  this.classList.toggle('active', repeatMode > 0);
+  const base = '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>';
+  this.querySelector('svg').innerHTML = repeatMode === 2
+    ? base + '<text x="12" y="14.5" fill="currentColor" font-size="7" font-weight="700" text-anchor="middle" font-family="inherit">1</text>'
+    : base;
 });
 
-$('full-close').addEventListener('click', () => {
-  $('full').classList.add('hidden');
-  $('full').classList.remove('show');
+// Overlay controls
+document.getElementById('vinyl-wrap').addEventListener('click', openOverlay);
+document.getElementById('np-cls').addEventListener('click', closeOverlay);
+document.getElementById('np').addEventListener('click', e => {
+  if (e.target.id === 'np' || e.target.classList.contains('np-dim')) closeOverlay();
+});
+document.getElementById('np-ply').addEventListener('click', togglePlay);
+document.getElementById('np-prv').addEventListener('click', playPrev);
+document.getElementById('np-nxt').addEventListener('click', playNext);
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeOverlay();
+  if (e.key === ' ' && e.target === document.body) { e.preventDefault(); togglePlay(); }
 });
 
-// ── Waveform bars ─────────────────────────
-(function initWaveform() {
-  const wf = $('waveform');
-  for (let i = 0; i < 24; i++) {
-    const span = document.createElement('span');
-    span.style.animationDelay = `${i * 0.06}s`;
-    span.style.height = '6px';
-    wf.appendChild(span);
-  }
-})();
+// Sidebar nav
+const main = document.getElementById('main');
+const sections = Array.from(document.querySelectorAll('.sec'));
+const navBtns = Array.from(document.querySelectorAll('.snl'));
 
-// ── Init ─────────────────────────
+navBtns.forEach(btn =>
+  btn.addEventListener('click', () => sections[+btn.dataset.s].scrollIntoView({ behavior: 'smooth' }))
+);
+
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    entry.target.classList.add('in');
+    const i = sections.indexOf(entry.target);
+    navBtns.forEach((b, j) => b.classList.toggle('active', i === j));
+  });
+}, { root: main, threshold: 0.5 });
+
+sections.forEach(s => observer.observe(s));
+
+// Init
+buildWaveform();
+renderHome();
+renderSongList();
+renderArtists();
 renderGenres();
-renderSongs();
+renderLibrary();
