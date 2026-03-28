@@ -8,9 +8,20 @@ let wfBarsNp = [];
 
 const audio = document.getElementById('audio');
 
+const GENRE_META = {
+  'Electronic': { color: '#22D3EE', icon: '⚡' },
+  'Pop':        { color: '#F472B6', icon: '✨' },
+  'Rock':       { color: '#F87171', icon: '🎸' },
+  'Jazz':       { color: '#FBBF24', icon: '🎷' },
+  'Hip-Hop':    { color: '#A78BFA', icon: '🎤' },
+  'R&B':        { color: '#60A5FA', icon: '🎵' },
+};
+
+const PLAY_ICO  = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+const PAUSE_ICO = '<polygon points="5 3 19 12 5 21"/>';
+
 function fmt(s) {
-  const m = Math.floor(s / 60);
-  return `${m}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+  return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
 }
 
 function greeting() {
@@ -20,27 +31,28 @@ function greeting() {
   return 'Good evening';
 }
 
-// Waveform
+// Waveform — seeded random heights so they look consistent
 let wseed = 91;
 const wr = () => { wseed = (wseed * 1664525 + 1013904223) >>> 0; return wseed / 0xFFFFFFFF; };
-const WAVE_H = Array.from({length: 80}, () => 12 + wr() * 76);
+const WAVE_H = Array.from({ length: 80 }, () => 12 + wr() * 76);
 
 function buildWaveform() {
   const barEl = document.getElementById('bp-rail');
-  const npEl = document.getElementById('np-wf');
+  const npEl  = document.getElementById('np-wf');
   barEl.innerHTML = WAVE_H.map(h => `<span class="wfb" style="height:${h}%"></span>`).join('');
-  npEl.innerHTML = WAVE_H.map(h => `<span class="npwb" style="height:${h}%"></span>`).join('');
+  npEl.innerHTML  = WAVE_H.map(h => `<span class="npwb" style="height:${h}%"></span>`).join('');
   wfBarsBar = Array.from(barEl.children);
-  wfBarsNp = Array.from(npEl.children);
+  wfBarsNp  = Array.from(npEl.children);
 }
 
 function updateWavePct(pct) {
   const idx = Math.floor(pct * wfBarsBar.length);
   wfBarsBar.forEach((b, i) => b.classList.toggle('lit', i < idx));
-  wfBarsNp.forEach((b, i) => b.classList.toggle('lit', i < idx));
+  wfBarsNp.forEach((b, i)  => b.classList.toggle('lit', i < idx));
 }
 
-// Render
+// ── Render functions ─────────────────────────────────────────────────────────
+
 function renderLibrary() {
   document.getElementById('library').innerHTML = SONGS.map(s => `
     <div class="lib-item${currentSong?.id === s.id ? ' playing' : ''}" data-id="${s.id}">
@@ -117,10 +129,10 @@ function renderSongList() {
 
 function renderArtists() {
   const artists = [
-    { name: 'Luna Echo',    genre: 'Electronic', seed: 'portrait-luna' },
+    { name: 'Luna Echo',    genre: 'Electronic', seed: 'portrait-luna'  },
     { name: 'The Coastals', genre: 'Pop',        seed: 'portrait-coast' },
-    { name: 'Voidwave',     genre: 'Rock',       seed: 'portrait-void' },
-    { name: 'Sol Raye',     genre: 'Jazz',       seed: 'portrait-sol' },
+    { name: 'Voidwave',     genre: 'Rock',       seed: 'portrait-void'  },
+    { name: 'Sol Raye',     genre: 'Jazz',       seed: 'portrait-sol'   },
     { name: 'Synthex',      genre: 'Electronic', seed: 'portrait-synth' },
     { name: 'Urban Groove', genre: 'Hip-Hop',    seed: 'portrait-urban' },
   ];
@@ -143,58 +155,30 @@ function renderGenres() {
     { name: 'Hip-Hop',    cnt: '2 songs', c1: '#7c3aed', c2: '#2e1065' },
     { name: 'R&B',        cnt: '4 songs', c1: '#0e7490', c2: '#082f49' },
   ];
-  document.getElementById('genres-grid').innerHTML = genres.map(g => {
-    const icon = (window.GENRE_META && GENRE_META[g.name]?.icon) || '';
-    return `
-      <div class="gc" style="--c1:${g.c1};--c2:${g.c2}">
-        <span class="gc-icon">${icon}</span>
-        <div>
-          <div class="gn">${g.name}</div>
-          <div class="gct">${g.cnt}</div>
-        </div>
-      </div>`;
-  }).join('');
+  document.getElementById('genres-grid').innerHTML = genres.map(g => `
+    <div class="gc" style="--c1:${g.c1};--c2:${g.c2}">
+      <span class="gc-icon">${GENRE_META[g.name]?.icon ?? ''}</span>
+      <div>
+        <div class="gn">${g.name}</div>
+        <div class="gct">${g.cnt}</div>
+      </div>
+    </div>
+  `).join('');
 }
 
-// Vinyl
+// ── Playback ──────────────────────────────────────────────────────────────────
+
 function setVinylSpin(on) {
   document.getElementById('bar-art').classList.toggle('spinning', on);
   document.getElementById('np-art').classList.toggle('spinning', on);
 }
 
-// Overlay
-function openOverlay() {
-  if (!currentSong) return;
-  const s = currentSong;
-  document.getElementById('np-bg').src = s.cover;
-  document.getElementById('np-art').src = s.cover;
-  document.getElementById('np-ttl').textContent = s.title;
-  document.getElementById('np-by').textContent = s.artist;
-  document.getElementById('np-tag').textContent = s.genre;
-  document.getElementById('np-t2').textContent = fmt(audio.duration || 0);
-  document.getElementById('np-c2').textContent = fmt(audio.currentTime || 0);
-  setVinylSpin(isPlaying);
-  const pico = isPlaying
-    ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
-    : '<polygon points="5 3 19 12 5 21"/>';
-  document.getElementById('np-pico').innerHTML = pico;
-  document.getElementById('np').classList.add('open');
-}
-
-function closeOverlay() {
-  document.getElementById('np').classList.remove('open');
-}
-
-// Playback
 function updateBarHeart() {
   const svg = document.getElementById('heart-icon');
-  const on = currentSong && favs.has(currentSong.id);
-  svg.setAttribute('fill', on ? 'var(--acc)' : 'none');
+  const on  = currentSong && favs.has(currentSong.id);
+  svg.setAttribute('fill',   on ? 'var(--acc)' : 'none');
   svg.setAttribute('stroke', on ? 'var(--acc)' : 'currentColor');
 }
-
-const PLAY_ICO = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
-const PAUSE_ICO = '<polygon points="5 3 19 12 5 21"/>';
 
 function playSong(song) {
   if (!song) return;
@@ -203,10 +187,10 @@ function playSong(song) {
   audio.src = song.audio;
   audio.play();
   document.getElementById('bar-art').src = song.cover;
-  document.getElementById('bar-title').textContent = song.title;
+  document.getElementById('bar-title').textContent  = song.title;
   document.getElementById('bar-artist').textContent = song.artist;
   document.getElementById('bar-play-icon').innerHTML = PLAY_ICO;
-  document.getElementById('np-pico').innerHTML = PLAY_ICO;
+  document.getElementById('np-pico').innerHTML       = PLAY_ICO;
   setVinylSpin(true);
   updateBarHeart();
   if (document.getElementById('np').classList.contains('open')) openOverlay();
@@ -220,13 +204,13 @@ function togglePlay() {
     audio.pause();
     isPlaying = false;
     document.getElementById('bar-play-icon').innerHTML = PAUSE_ICO;
-    document.getElementById('np-pico').innerHTML = PAUSE_ICO;
+    document.getElementById('np-pico').innerHTML       = PAUSE_ICO;
     setVinylSpin(false);
   } else {
     audio.play();
     isPlaying = true;
     document.getElementById('bar-play-icon').innerHTML = PLAY_ICO;
-    document.getElementById('np-pico').innerHTML = PLAY_ICO;
+    document.getElementById('np-pico').innerHTML       = PLAY_ICO;
     setVinylSpin(true);
   }
 }
@@ -235,7 +219,8 @@ function playNext() {
   if (!currentSong) { playSong(SONGS[0]); return; }
   const idx = SONGS.findIndex(s => s.id === currentSong.id);
   if (shuffleOn) {
-    let n; do { n = Math.floor(Math.random() * SONGS.length); } while (n === idx && SONGS.length > 1);
+    let n;
+    do { n = Math.floor(Math.random() * SONGS.length); } while (n === idx && SONGS.length > 1);
     playSong(SONGS[n]);
   } else {
     playSong(SONGS[(idx + 1) % SONGS.length]);
@@ -256,18 +241,40 @@ function toggleFav(id) {
   updateBarHeart();
 }
 
-// Audio events
+// ── Now Playing overlay ───────────────────────────────────────────────────────
+
+function openOverlay() {
+  if (!currentSong) return;
+  const s = currentSong;
+  document.getElementById('np-bg').src  = s.cover;
+  document.getElementById('np-art').src = s.cover;
+  document.getElementById('np-ttl').textContent = s.title;
+  document.getElementById('np-by').textContent  = s.artist;
+  document.getElementById('np-tag').textContent = s.genre;
+  document.getElementById('np-t2').textContent  = fmt(audio.duration || 0);
+  document.getElementById('np-c2').textContent  = fmt(audio.currentTime || 0);
+  setVinylSpin(isPlaying);
+  document.getElementById('np-pico').innerHTML = isPlaying ? PLAY_ICO : PAUSE_ICO;
+  document.getElementById('np').classList.add('open');
+}
+
+function closeOverlay() {
+  document.getElementById('np').classList.remove('open');
+}
+
+// ── Audio events ──────────────────────────────────────────────────────────────
+
 audio.addEventListener('timeupdate', () => {
   if (!audio.duration) return;
   const pct = audio.currentTime / audio.duration;
   updateWavePct(pct);
   document.getElementById('bp-cur').textContent = fmt(audio.currentTime);
-  document.getElementById('np-c2').textContent = fmt(audio.currentTime);
+  document.getElementById('np-c2').textContent  = fmt(audio.currentTime);
 });
 
 audio.addEventListener('loadedmetadata', () => {
   document.getElementById('bp-tot').textContent = fmt(audio.duration);
-  document.getElementById('np-t2').textContent = fmt(audio.duration);
+  document.getElementById('np-t2').textContent  = fmt(audio.duration);
 });
 
 audio.addEventListener('ended', () => {
@@ -275,7 +282,8 @@ audio.addEventListener('ended', () => {
   else playNext();
 });
 
-// Seek
+// ── Controls ──────────────────────────────────────────────────────────────────
+
 document.getElementById('bp-rail').addEventListener('click', e => {
   if (!audio.duration) return;
   const r = e.currentTarget.getBoundingClientRect();
@@ -288,22 +296,20 @@ document.getElementById('np-wf').addEventListener('click', e => {
   audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration;
 });
 
-// Volume
 audio.volume = 0.7;
 document.getElementById('bar-vol').addEventListener('input', e => { audio.volume = e.target.value / 100; });
 
-// Player bar controls
 document.getElementById('bar-play').addEventListener('click', togglePlay);
 document.getElementById('bar-next').addEventListener('click', playNext);
 document.getElementById('bar-prev').addEventListener('click', playPrev);
 document.getElementById('bar-heart').addEventListener('click', () => { if (currentSong) toggleFav(currentSong.id); });
 
-document.getElementById('bar-shuffle').addEventListener('click', function() {
+document.getElementById('bar-shuffle').addEventListener('click', function () {
   shuffleOn = !shuffleOn;
   this.classList.toggle('active', shuffleOn);
 });
 
-document.getElementById('bar-repeat').addEventListener('click', function() {
+document.getElementById('bar-repeat').addEventListener('click', function () {
   repeatMode = (repeatMode + 1) % 3;
   this.classList.toggle('active', repeatMode > 0);
   const base = '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>';
@@ -312,7 +318,6 @@ document.getElementById('bar-repeat').addEventListener('click', function() {
     : base;
 });
 
-// Overlay controls
 document.getElementById('vinyl-wrap').addEventListener('click', openOverlay);
 document.getElementById('np-cls').addEventListener('click', closeOverlay);
 document.getElementById('np').addEventListener('click', e => {
@@ -322,16 +327,16 @@ document.getElementById('np-ply').addEventListener('click', togglePlay);
 document.getElementById('np-prv').addEventListener('click', playPrev);
 document.getElementById('np-nxt').addEventListener('click', playNext);
 
-// Keyboard
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeOverlay();
   if (e.key === ' ' && e.target === document.body) { e.preventDefault(); togglePlay(); }
 });
 
-// Sidebar nav
-const main = document.getElementById('main');
+// ── Sidebar nav & section observer ───────────────────────────────────────────
+
+const main     = document.getElementById('main');
 const sections = Array.from(document.querySelectorAll('.sec'));
-const navBtns = Array.from(document.querySelectorAll('.snl'));
+const navBtns  = Array.from(document.querySelectorAll('.snl'));
 
 navBtns.forEach(btn =>
   btn.addEventListener('click', () => sections[+btn.dataset.s].scrollIntoView({ behavior: 'smooth' }))
@@ -348,7 +353,8 @@ const observer = new IntersectionObserver(entries => {
 
 sections.forEach(s => observer.observe(s));
 
-// Init
+// ── Init ──────────────────────────────────────────────────────────────────────
+
 buildWaveform();
 renderHome();
 renderSongList();
@@ -356,50 +362,31 @@ renderArtists();
 renderGenres();
 renderLibrary();
 
-// ── QUIZ ────────────────────────────────────────────────────────────────────
-
-const GENRE_META = {
-  'Electronic': { color: '#22D3EE', icon: '⚡' },
-  'Pop':        { color: '#F472B6', icon: '✨' },
-  'Rock':       { color: '#F87171', icon: '🎸' },
-  'Jazz':       { color: '#FBBF24', icon: '🎷' },
-  'Hip-Hop':    { color: '#A78BFA', icon: '🎤' },
-  'R&B':        { color: '#60A5FA', icon: '🎵' },
-};
-
-const GENRES_ORDER = ['Electronic', 'Pop', 'Rock', 'Jazz', 'Hip-Hop', 'R&B'];
+// ── Quiz onboarding ───────────────────────────────────────────────────────────
 
 function initQuiz() {
-  const quizEl = document.getElementById('quiz');
-  const grid   = document.getElementById('qz-grid');
-  const btn    = document.getElementById('qz-btn');
+  const quizEl   = document.getElementById('quiz');
+  const grid     = document.getElementById('qz-grid');
+  const btn      = document.getElementById('qz-btn');
   const selected = new Set();
 
-  // Build genre tiles
-  grid.innerHTML = GENRES_ORDER.map(g => {
-    const m = GENRE_META[g];
-    return `
-      <div class="qz-tile" data-genre="${g}" style="--tile-color:${m.color}">
-        <span class="qz-tile-icon">${m.icon}</span>
-        <span class="qz-tile-name">${g}</span>
-        <span class="qz-check">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
-        </span>
-      </div>`;
-  }).join('');
+  grid.innerHTML = Object.entries(GENRE_META).map(([g, m]) => `
+    <div class="qz-tile" data-genre="${g}" style="--tile-color:${m.color}">
+      <span class="qz-tile-icon">${m.icon}</span>
+      <span class="qz-tile-name">${g}</span>
+      <span class="qz-check">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </span>
+    </div>
+  `).join('');
 
   grid.querySelectorAll('.qz-tile').forEach(tile => {
     tile.addEventListener('click', () => {
       const g = tile.dataset.genre;
-      if (selected.has(g)) {
-        selected.delete(g);
-        tile.classList.remove('sel');
-      } else {
-        selected.add(g);
-        tile.classList.add('sel');
-      }
+      selected.has(g) ? selected.delete(g) : selected.add(g);
+      tile.classList.toggle('sel', selected.has(g));
       const n = selected.size;
-      btn.disabled = n === 0;
+      btn.disabled    = n === 0;
       btn.textContent = n === 0
         ? 'Select a genre to continue'
         : `Continue with ${n} genre${n > 1 ? 's' : ''} →`;
@@ -408,33 +395,18 @@ function initQuiz() {
 
   btn.addEventListener('click', () => {
     if (!selected.size) return;
-
-    // Apply the first selected genre's color as the accent
-    const pick = [...selected][0];
+    const pick   = [...selected][0];
     const newAcc = GENRE_META[pick]?.color || '#C8FF00';
+
     document.documentElement.style.setProperty('--acc', newAcc);
+    Object.entries(GENRE_META).forEach(([k, v]) => { window.GENRE_COLORS[k] = v.color; });
 
-    // Sync GENRE_COLORS used in song rows
-    Object.entries(GENRE_META).forEach(([k, v]) => {
-      window.GENRE_COLORS[k] = v.color;
-    });
-    renderSongList(); // re-render with new colors
+    document.getElementById('greeting').textContent = `Your ${pick} mix`;
+    renderSongList();
 
-    // Update greeting to reference the quiz
-    document.getElementById('greeting').textContent =
-      `Your ${pick} mix`;
-
-    // Slide quiz away
     quizEl.classList.add('out');
-    quizEl.addEventListener('transitionend', () => {
-      quizEl.style.display = 'none';
-    }, { once: true });
+    quizEl.addEventListener('transitionend', () => { quizEl.style.display = 'none'; }, { once: true });
   });
 }
 
-// Show quiz unless already completed this session
-if (!sessionStorage.getItem('quizDone')) {
-  initQuiz();
-} else {
-  document.getElementById('quiz').style.display = 'none';
-}
+initQuiz();
